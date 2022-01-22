@@ -24,7 +24,8 @@ type ConfigFile struct {
 	SessionData string
 	BilibiliJCT string
 
-	VisualColorMode bool
+	VisualColorMode  bool
+	IfPrintFansMedal bool
 }
 
 func saveToConfig(cfg ConfigFile) {
@@ -33,6 +34,7 @@ func saveToConfig(cfg ConfigFile) {
 	cfgFile.Section("blivechat").Key("VisualColorMode").SetValue(cast.ToString(cfg.VisualColorMode))
 	cfgFile.Section("blivechat").Key("SessionData").SetValue(cast.ToString(cfg.SessionData))
 	cfgFile.Section("blivechat").Key("BilibiliJCT").SetValue(cast.ToString(cfg.BilibiliJCT))
+	cfgFile.Section("blivecha").Key("IfPrintFansMedal").SetValue(cast.ToString(cfg.IfPrintFansMedal))
 	err := cfgFile.SaveTo(DEFAULT_CONFIG_NAME)
 	if err != nil {
 		return
@@ -80,10 +82,11 @@ func startFromArgs(roomId int, args []string) *gocui.Gui {
 
 func startFromConfig(roomId int, filename string) *gocui.Gui {
 	cfg := ConfigFile{
-		Uid:             0,
-		SessionData:     "",
-		BilibiliJCT:     "",
-		VisualColorMode: false,
+		Uid:              0,
+		SessionData:      "",
+		BilibiliJCT:      "",
+		VisualColorMode:  true,
+		IfPrintFansMedal: true,
 	}
 	cfgFile, err := ini.Load(filename)
 	if err != nil {
@@ -94,11 +97,12 @@ func startFromConfig(roomId int, filename string) *gocui.Gui {
 		Key("Uid").Value(), "0"))
 	cfg.VisualColorMode = cast.ToBool(
 		getOrDefault(cfgFile.Section("blivechat").
-			Key("VisualColorMode").Value(), "false"))
+			Key("VisualColorMode").Value(), "true"))
 	cfg.SessionData = getOrDefault(cfgFile.Section("blivechat").
 		Key("SessionData").Value(), "")
 	cfg.BilibiliJCT = getOrDefault(cfgFile.Section("blivechat").
 		Key("BilibiliJCT").Value(), "")
+	cfg.IfPrintFansMedal = cast.ToBool(getOrDefault(cfgFile.Section("blivechat").Key("IfPrintFansMedal").Value(), "false"))
 	g := blivechat.CreateGUI()
 	cl := blivedm.BLiveWsClient{ShortId: roomId,
 		Account: blivedm.DanmuAccount{

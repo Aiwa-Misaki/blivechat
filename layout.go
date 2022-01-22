@@ -39,6 +39,7 @@ func MainLayout(g *gocui.Gui) error {
 		log.SetOutput(v)
 	}
 
+	// input widget
 	if v, err := g.SetView(ViewSend, 0, maxY*6/8, maxX*5/8-1, maxY-1, 0); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err

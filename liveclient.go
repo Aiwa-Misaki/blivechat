@@ -2,9 +2,10 @@ package blivechat
 
 import (
 	"fmt"
+	"time"
+
 	"github.com/awesome-gocui/gocui"
 	"github.com/aynakeya/blivedm"
-	"time"
 )
 
 var Client *blivedm.BLiveWsClient
@@ -99,6 +100,8 @@ func SetupDanmuClient(g *gocui.Gui, cl *blivedm.BLiveWsClient) {
 					Client.RoomInfo.Title, Client.RoomInfo.RoomId, Client.RoomInfo.LiveStatus == 1,
 					upname, Client.RoomInfo.Uid,
 					Client.Account.UID))
+			width, height := g.Size()
+			PrintToDebug(g, fmt.Sprintf("room info widget size: %d*%d", width, height))
 			ClientSet <- 1
 			g.Update(func(gui *gocui.Gui) error { return nil })
 		}()

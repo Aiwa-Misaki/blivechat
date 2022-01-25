@@ -2,14 +2,19 @@ package blivechat
 
 import (
 	"fmt"
+	"log"
+
 	"github.com/awesome-gocui/gocui"
 	"github.com/aynakeya/blivedm"
 	"github.com/spf13/cast"
-	"log"
 )
 
 func MainLayout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
+	//room info widget min height 1
+	if maxY < 24 {
+		maxY = 24
+	}
 	if v, err := g.SetView(ViewRoom, 0, 0, maxX-1, maxY/8-1, 0); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
@@ -19,7 +24,26 @@ func MainLayout(g *gocui.Gui) error {
 		v.Editable = false
 	}
 
-	if v, err := g.SetView(ViewDanmu, 0, maxY/8, maxX*5/8-1, maxY*6/8-1, 0); err != nil {
+	// config view paint with option
+	if !Config.IfHideDebug {
+		if v, err := g.SetView(ViewDebug, maxX*5/8, maxY/8, maxX-1, maxY*6/8-1, 0); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			v.Title = "Debug"
+			v.Wrap = true
+			v.Editable = false
+			v.Autoscroll = true
+			log.SetOutput(v)
+		}
+	}
+
+	// Danmu view paint with option
+	viewDanmuEnd := maxX - 1
+	if Config.IfHideDebug {
+		viewDanmuEnd = maxY*6/8 - 1
+	}
+	if v, err := g.SetView(ViewDanmu, 0, maxY/8, maxX*5/8-1, viewDanmuEnd, 0); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -27,16 +51,6 @@ func MainLayout(g *gocui.Gui) error {
 		v.Wrap = true
 		v.Editable = false
 		v.Autoscroll = true
-	}
-	if v, err := g.SetView(ViewDebug, maxX*5/8, maxY/8, maxX-1, maxY*6/8-1, 0); err != nil {
-		if err != gocui.ErrUnknownView {
-			return err
-		}
-		v.Title = "Debug"
-		v.Wrap = true
-		v.Editable = false
-		v.Autoscroll = true
-		log.SetOutput(v)
 	}
 
 	// input widget
@@ -71,6 +85,7 @@ func MainLayout(g *gocui.Gui) error {
 }
 
 func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
+	// visual mode
 	enableColor := &ConfigOptionPanel{
 		BaseWidget: BaseWidget{
 			ViewConfigVisualColorMode,
@@ -88,15 +103,17 @@ func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
 		DisplayName: "VisualMode",
 		Option: ConfigOption{
 			index:        0,
-			Options:      []string{"On", "Off"},
+			Options:      []string{" On", " Off"},
 			OptionValues: []string{"1", "0"},
 		},
 		SetConfig: func(value string) {
 			Config.VisualColorMode = value == "1"
 		},
 	}
-	enableColor.Option.SetIndexToValue("0")
+	//enableColor.Option.SetIndexToValue("0")//?
+	enableColor.Option.SetIndexToValue(cast.ToString(Config.VisualColorMode == true))
 
+	// danmu color
 	danmuColor := &ConfigOptionPanel{
 		BaseWidget: BaseWidget{
 			ViewConfigDanmuColor,
@@ -114,7 +131,7 @@ func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
 		DisplayName: "DanmuColor",
 		Option: ConfigOption{
 			index:        0,
-			Options:      []string{"白色"},
+			Options:      []string{" 白色"},
 			OptionValues: []string{"16777215"},
 		},
 		SetConfig: func(value string) {
@@ -135,6 +152,7 @@ func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
 	}
 	danmuColor.Option.SetIndexToValue(SendFormConfig.Color)
 
+	// danmu mode
 	danmuMode := &ConfigOptionPanel{
 		BaseWidget: BaseWidget{
 			ViewConfigDanmuMode,
@@ -146,13 +164,13 @@ func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
 			},
 		},
 		LinkedWidget: LinkedWidget{
-			ViewConfigDanmuColor,
+			ViewConfigDanmuMode,
 			ViewConfigVisualColorMode,
 		},
 		DisplayName: "DanmuMode",
 		Option: ConfigOption{
 			index:        0,
-			Options:      []string{"滚动"},
+			Options:      []string{" 滚动"},
 			OptionValues: []string{"1"},
 		},
 		SetConfig: func(value string) {
@@ -172,6 +190,72 @@ func ConfigLayouts(g *gocui.Gui) []gocui.Manager {
 		},
 	}
 	danmuMode.Option.SetIndexToValue(cast.ToString(SendFormConfig.Mode))
+
+	// fans medal
+	fansMedal := &ConfigOptionPanel{
+		BaseWidget: BaseWidget{
+			ViewConfigFansMedal,
+			func(g *gocui.Gui) (x0, y0, x1, y1 int) {
+				maxX, maxY := g.Size()
+				xa, ya, xb, yb := maxX*5/8, maxY*6/8, maxX-1, maxY-1
+				dx, dy := xb-xa, yb-ya
+				return xa + dx/8, ya + dy*2/8, xa + dx*7/8, ya + dy*7/8
+			},
+		},
+		LinkedWidget: LinkedWidget{
+			ViewConfigDanmuMode,
+			ViewConfigHideDebug,
+		},
+		DisplayName: "fans medal display",
+		Option: ConfigOption{
+			index:        0,
+			Options:      []string{" 隐藏", " 显示"},
+			OptionValues: []string{"1", "0"},
+		},
+		SetConfig: func(value string) {
+			SendFormConfig.Mode = cast.ToInt(value)
+			go func() {
+				Config.IfPrintFansMedal = value == "1"
+				g.Update(func(gui *gocui.Gui) error {
+					return nil
+				})
+			}()
+		},
+	}
+	fansMedal.Option.SetIndexToValue(cast.ToString(Config.IfPrintFansMedal))
+	// hide debug
+	hideDebug := &ConfigOptionPanel{
+		BaseWidget: BaseWidget{
+			ViewConfigHideDebug,
+			func(g *gocui.Gui) (x0, y0, x1, y1 int) {
+				maxX, maxY := g.Size()
+				xa, ya, xb, yb := maxX*5/8, maxY*6/8, maxX-1, maxY-1
+				dx, dy := xb-xa, yb-ya
+				return xa + dx/8, ya + dy*2/8, xa + dx*7/8, ya + dy*7/8
+			},
+		},
+		LinkedWidget: LinkedWidget{
+			ViewConfigDanmuMode,
+			ViewConfigVisualColorMode,
+		},
+		DisplayName: "debug window display",
+		Option: ConfigOption{
+			index:        0,
+			Options:      []string{" 隐藏", " 显示"},
+			OptionValues: []string{"1", "0"},
+		},
+		SetConfig: func(value string) {
+			SendFormConfig.Mode = cast.ToInt(value)
+			go func() {
+				Config.IfHideDebug = value == "1"
+				g.Update(func(gui *gocui.Gui) error {
+					return nil
+				})
+			}()
+		},
+	}
+	hideDebug.Option.SetIndexToValue(cast.ToString(Config.IfHideDebug))
+
 	go func() {
 		_ = <-ClientSet
 		defer g.Update(func(gui *gocui.Gui) error {
